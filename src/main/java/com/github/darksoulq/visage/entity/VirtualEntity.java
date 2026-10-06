@@ -43,9 +43,6 @@ public abstract class VirtualEntity<T extends Entity> implements Cullable {
     protected Predicate<Player> visibilityFilter = null;
 
     protected World world;
-    protected double locX, locZ;
-    protected double centerX, centerY, centerZ;
-    protected double cullingRadius;
 
     public VirtualEntity(Location location) {
         this.location = location.clone();
@@ -115,15 +112,6 @@ public abstract class VirtualEntity<T extends Entity> implements Cullable {
 
     private void recalculateBounds() {
         this.world = location.getWorld();
-        this.locX = location.getX();
-        this.locZ = location.getZ();
-        this.centerX = (boundingBox.getMaxX() + boundingBox.getMinX()) / 2.0;
-        this.centerY = (boundingBox.getMaxY() + boundingBox.getMinY()) / 2.0;
-        this.centerZ = (boundingBox.getMaxZ() + boundingBox.getMinZ()) / 2.0;
-        double rX = (boundingBox.getMaxX() - boundingBox.getMinX()) / 2.0;
-        double rY = (boundingBox.getMaxY() - boundingBox.getMinY()) / 2.0;
-        double rZ = (boundingBox.getMaxZ() - boundingBox.getMinZ()) / 2.0;
-        this.cullingRadius = Math.sqrt(rX * rX + rY * rY + rZ * rZ);
     }
 
     public void setGlowing(boolean glowing) {
@@ -169,36 +157,6 @@ public abstract class VirtualEntity<T extends Entity> implements Cullable {
     @Override
     public World getWorld() {
         return world;
-    }
-
-    @Override
-    public double getX() {
-        return locX;
-    }
-
-    @Override
-    public double getZ() {
-        return locZ;
-    }
-
-    @Override
-    public double getCenterX() {
-        return centerX;
-    }
-
-    @Override
-    public double getCenterY() {
-        return centerY;
-    }
-
-    @Override
-    public double getCenterZ() {
-        return centerZ;
-    }
-
-    @Override
-    public double getCullingRadius() {
-        return cullingRadius;
     }
 
     @Override

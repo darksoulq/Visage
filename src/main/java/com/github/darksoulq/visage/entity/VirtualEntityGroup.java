@@ -27,9 +27,6 @@ public class VirtualEntityGroup implements Cullable {
     private Quaternionf groupRotation;
 
     private World world;
-    private double locX, locZ;
-    private double centerX, centerY, centerZ;
-    private double cullingRadius;
 
     public record GroupTransform(Vector3f localTranslation, Quaternionf localRotation) {}
 
@@ -111,15 +108,9 @@ public class VirtualEntityGroup implements Cullable {
 
     public void recalculateBounds() {
         this.world = coreLocation.getWorld();
-        this.locX = coreLocation.getX();
-        this.locZ = coreLocation.getZ();
 
         if (children.isEmpty()) {
             this.boundingBox = BoundingBox.of(this.coreLocation, 0, 0, 0);
-            this.centerX = coreLocation.getX();
-            this.centerY = coreLocation.getY();
-            this.centerZ = coreLocation.getZ();
-            this.cullingRadius = 0;
             return;
         }
 
@@ -133,13 +124,6 @@ public class VirtualEntityGroup implements Cullable {
         }
 
         this.boundingBox = merged;
-        this.centerX = (boundingBox.getMaxX() + boundingBox.getMinX()) / 2.0;
-        this.centerY = (boundingBox.getMaxY() + boundingBox.getMinY()) / 2.0;
-        this.centerZ = (boundingBox.getMaxZ() + boundingBox.getMinZ()) / 2.0;
-        double rX = (boundingBox.getMaxX() - boundingBox.getMinX()) / 2.0;
-        double rY = (boundingBox.getMaxY() - boundingBox.getMinY()) / 2.0;
-        double rZ = (boundingBox.getMaxZ() - boundingBox.getMinZ()) / 2.0;
-        this.cullingRadius = Math.sqrt(rX * rX + rY * rY + rZ * rZ);
     }
 
     @Override
@@ -165,36 +149,6 @@ public class VirtualEntityGroup implements Cullable {
     @Override
     public World getWorld() {
         return world;
-    }
-
-    @Override
-    public double getX() {
-        return locX;
-    }
-
-    @Override
-    public double getZ() {
-        return locZ;
-    }
-
-    @Override
-    public double getCenterX() {
-        return centerX;
-    }
-
-    @Override
-    public double getCenterY() {
-        return centerY;
-    }
-
-    @Override
-    public double getCenterZ() {
-        return centerZ;
-    }
-
-    @Override
-    public double getCullingRadius() {
-        return cullingRadius;
     }
 
     @Override

@@ -12,12 +12,6 @@ public interface Cullable {
     UUID getUniqueId();
     Location getLocation();
     World getWorld();
-    double getX();
-    double getZ();
-    double getCenterX();
-    double getCenterY();
-    double getCenterZ();
-    double getCullingRadius();
     BoundingBox getBoundingBox();
     void spawnFor(Player player);
     void destroyFor(Player player);

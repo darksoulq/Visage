@@ -1,5 +1,6 @@
 package com.github.darksoulq.visage.util;
 
+import com.github.darksoulq.visage.VisageConfig;
 import org.bukkit.util.BoundingBox;
 import org.bukkit.util.Vector;
 
@@ -12,8 +13,6 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.function.Function;
 
 public class Octree<N> implements Iterable<N> {
-    private static final int DEFAULT_MAX_DEPTH = 2048;
-    private static final int DEFAULT_MAX_ENTRIES = 128;
 
     private final int maxDepth;
     private final int maxEntries;
@@ -27,7 +26,7 @@ public class Octree<N> implements Iterable<N> {
     private Octree<N>[] children = null;
 
     public Octree(BoundingBox bounds, int depth, Function<N, BoundingBox> entryStrategy) {
-        this(DEFAULT_MAX_DEPTH, DEFAULT_MAX_ENTRIES, bounds, depth, entryStrategy, false);
+        this(VisageConfig.OCTREE_MAX_DEPTH, VisageConfig.OCTREE_MAX_ENTRIES, bounds, depth, entryStrategy, false);
     }
 
     public Octree(int maxDepth, int maxEntries, BoundingBox bounds, int depth, Function<N, BoundingBox> entryStrategy, boolean storeOutOfBoundsEntries) {

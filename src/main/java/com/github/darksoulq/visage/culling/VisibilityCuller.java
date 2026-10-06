@@ -33,7 +33,7 @@ public class VisibilityCuller {
             double sZ = box.getMaxZ() - box.getMinZ();
             double boxRadius = Math.sqrt(sX * sX + sY * sY + sZ * sZ) * 0.5;
 
-            double threshold = VisageConfig.FRUSTUM_THRESHOLD - (boxRadius / dist);
+            double threshold = VisageConfig.FRUSTUM_THRESHOLD * (boxRadius / dist);
 
             if (dot < threshold && dist > boxRadius) {
                 return VisibilityState.CULLED_FRUSTUM;

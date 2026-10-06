@@ -60,7 +60,7 @@ public class CullingTracker {
         World world = cullable.getWorld();
 
         Octree<Cullable> octree = worldOctrees.computeIfAbsent(world, w ->
-            new Octree<>(BoundingBox.of(new Vector(-30000000, -64, -30000000), new Vector(30000000, 320, 30000000)), 0, Cullable::getBoundingBox)
+            new Octree<>(BoundingBox.of(new Vector(VisageConfig.OCTREE_MIN_XYZ, VisageConfig.OCTREE_MIN_Y, VisageConfig.OCTREE_MIN_XYZ), new Vector(VisageConfig.OCTREE_MAX_XYZ, VisageConfig.OCTREE_MAX_Y, VisageConfig.OCTREE_MAX_XYZ)), 0, Cullable::getBoundingBox)
         );
         octree.insert(cullable);
     }
@@ -96,7 +96,7 @@ public class CullingTracker {
 
             World newWorld = cullable.getWorld();
             Octree<Cullable> newOctree = worldOctrees.computeIfAbsent(newWorld, w ->
-                new Octree<>(BoundingBox.of(new Vector(-30000000, -64, -30000000), new Vector(30000000, 320, 30000000)), 0, Cullable::getBoundingBox)
+                new Octree<>(BoundingBox.of(new Vector(VisageConfig.OCTREE_MIN_XYZ, VisageConfig.OCTREE_MIN_Y, VisageConfig.OCTREE_MIN_XYZ), new Vector(VisageConfig.OCTREE_MAX_XYZ, VisageConfig.OCTREE_MAX_Y, VisageConfig.OCTREE_MAX_XYZ)), 0, Cullable::getBoundingBox)
             );
             newOctree.insert(cullable);
         } else {
