@@ -1,14 +1,15 @@
 package com.github.darksoulq.visage.culling;
 
 import com.github.darksoulq.visage.VisageConfig;
+import com.github.darksoulq.visage.util.Octree;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.util.BoundingBox;
 import org.bukkit.util.Vector;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -19,7 +20,7 @@ import java.util.function.Predicate;
 
 public class CullingTracker {
     private static final Map<UUID, Cullable> cullables = new ConcurrentHashMap<>();
-    private static final Map<World, Map<Long, List<Cullable>>> spatialGrid = new ConcurrentHashMap<>();
+    private static final Map<World, Octree<Cullable>> worldOctrees = new ConcurrentHashMap<>();
     private static final Map<UUID, PlayerTrackingState> playerTracking = new ConcurrentHashMap<>();
 
     private static int taskId = -1;
@@ -46,31 +47,22 @@ public class CullingTracker {
                 unregister(id);
             }
             playerTracking.clear();
-            spatialGrid.clear();
+            worldOctrees.clear();
         }
     }
 
     public static void unloadWorld(World world) {
-        spatialGrid.remove(world);
-    }
-
-    private static long getChunkKey(double x, double z) {
-        int cx = ((int) Math.floor(x)) >> 4;
-        int cz = ((int) Math.floor(z)) >> 4;
-        return ((long) cx & 0xFFFFFFFFL) | (((long) cz & 0xFFFFFFFFL) << 32);
+        worldOctrees.remove(world);
     }
 
     public static void register(Cullable cullable) {
         cullables.put(cullable.getUniqueId(), cullable);
         World world = cullable.getWorld();
-        long key = getChunkKey(cullable.getX(), cullable.getZ());
 
-        Map<Long, List<Cullable>> grid = spatialGrid.computeIfAbsent(world, w -> new ConcurrentHashMap<>());
-        List<Cullable> bucket = grid.computeIfAbsent(key, k -> new ArrayList<>());
-
-        synchronized (bucket) {
-            bucket.add(cullable);
-        }
+        Octree<Cullable> octree = worldOctrees.computeIfAbsent(world, w ->
+            new Octree<>(BoundingBox.of(new Vector(-30000000, -64, -30000000), new Vector(30000000, 320, 30000000)), 0, Cullable::getBoundingBox)
+        );
+        octree.insert(cullable);
     }
 
     public static void unregister(UUID uniqueId) {
@@ -78,16 +70,10 @@ public class CullingTracker {
         if (cullable != null) {
             cullable.destroyAll();
             World world = cullable.getWorld();
-            long key = getChunkKey(cullable.getX(), cullable.getZ());
 
-            Map<Long, List<Cullable>> grid = spatialGrid.get(world);
-            if (grid != null) {
-                List<Cullable> bucket = grid.get(key);
-                if (bucket != null) {
-                    synchronized (bucket) {
-                        bucket.remove(cullable);
-                    }
-                }
+            Octree<Cullable> octree = worldOctrees.get(world);
+            if (octree != null) {
+                octree.remove(cullable);
             }
 
             for (PlayerTrackingState pState : playerTracking.values()) {
@@ -100,30 +86,19 @@ public class CullingTracker {
     public static void reindex(Cullable cullable, Runnable updateAction) {
         if (cullables.containsKey(cullable.getUniqueId())) {
             World oldWorld = cullable.getWorld();
-            long oldKey = getChunkKey(cullable.getX(), cullable.getZ());
+
+            Octree<Cullable> oldOctree = worldOctrees.get(oldWorld);
+            if (oldOctree != null) {
+                oldOctree.remove(cullable);
+            }
 
             updateAction.run();
 
             World newWorld = cullable.getWorld();
-            long newKey = getChunkKey(cullable.getX(), cullable.getZ());
-
-            if (!oldWorld.equals(newWorld) || oldKey != newKey) {
-                Map<Long, List<Cullable>> oldGrid = spatialGrid.get(oldWorld);
-                if (oldGrid != null) {
-                    List<Cullable> oldBucket = oldGrid.get(oldKey);
-                    if (oldBucket != null) {
-                        synchronized (oldBucket) {
-                            oldBucket.remove(cullable);
-                        }
-                    }
-                }
-
-                Map<Long, List<Cullable>> newGrid = spatialGrid.computeIfAbsent(newWorld, w -> new ConcurrentHashMap<>());
-                List<Cullable> newBucket = newGrid.computeIfAbsent(newKey, k -> new ArrayList<>());
-                synchronized (newBucket) {
-                    newBucket.add(cullable);
-                }
-            }
+            Octree<Cullable> newOctree = worldOctrees.computeIfAbsent(newWorld, w ->
+                new Octree<>(BoundingBox.of(new Vector(-30000000, -64, -30000000), new Vector(30000000, 320, 30000000)), 0, Cullable::getBoundingBox)
+            );
+            newOctree.insert(cullable);
         } else {
             updateAction.run();
         }
@@ -131,6 +106,8 @@ public class CullingTracker {
 
     private static void tickTracking() {
         int currentTick = ticks;
+        double qs = VisageConfig.TRACKING_QUERY_BOX_SIZE;
+
         for (Player p : Bukkit.getOnlinePlayers()) {
             UUID uuid = p.getUniqueId();
             PlayerTrackingState pState = playerTracking.computeIfAbsent(uuid, k -> new PlayerTrackingState());
@@ -146,44 +123,31 @@ public class CullingTracker {
             double dirY = dir.getY();
             double dirZ = dir.getZ();
 
-            Map<Long, List<Cullable>> grid = spatialGrid.get(world);
-            if (grid != null) {
-                int cx = ((int) Math.floor(eyeX)) >> 4;
-                int cz = ((int) Math.floor(eyeZ)) >> 4;
-                int radius = (int) Math.ceil(VisageConfig.TRACKING_QUERY_BOX_SIZE / 16.0);
+            Octree<Cullable> octree = worldOctrees.get(world);
 
-                for (int x = cx - radius; x <= cx + radius; x++) {
-                    for (int z = cz - radius; z <= cz + radius; z++) {
-                        long key = ((long) x & 0xFFFFFFFFL) | (((long) z & 0xFFFFFFFFL) << 32);
-                        List<Cullable> bucket = grid.get(key);
+            if (octree != null) {
+                BoundingBox queryBox = new BoundingBox(eyeX - qs, eyeY - qs, eyeZ - qs, eyeX + qs, eyeY + qs, eyeZ + qs);
 
-                        if (bucket != null) {
-                            synchronized (bucket) {
-                                for (int i = 0; i < bucket.size(); i++) {
-                                    Cullable cullable = bucket.get(i);
-                                    Predicate<Player> filter = cullable.getVisibilityFilter();
-                                    VisibilityState state;
+                for (Cullable cullable : octree.query(queryBox)) {
+                    Predicate<Player> filter = cullable.getVisibilityFilter();
+                    VisibilityState state;
 
-                                    if (filter != null && !filter.test(p)) {
-                                        state = VisibilityState.HIDDEN;
-                                    } else {
-                                        state = VisibilityCuller.getVisibility(eyeX, eyeY, eyeZ, dirX, dirY, dirZ, cullable);
-                                    }
-
-                                    pState.lastSeen.put(cullable.getUniqueId(), currentTick);
-                                    VisibilityState oldState = pState.states.getOrDefault(cullable.getUniqueId(), VisibilityState.HIDDEN);
-
-                                    if (state == VisibilityState.VISIBLE && oldState != VisibilityState.VISIBLE) {
-                                        cullable.spawnFor(p);
-                                    } else if (state != VisibilityState.VISIBLE && oldState == VisibilityState.VISIBLE) {
-                                        cullable.destroyFor(p);
-                                    }
-
-                                    pState.states.put(cullable.getUniqueId(), state);
-                                }
-                            }
-                        }
+                    if (filter != null && !filter.test(p)) {
+                        state = VisibilityState.HIDDEN;
+                    } else {
+                        state = VisibilityCuller.getVisibility(world, eyeX, eyeY, eyeZ, dirX, dirY, dirZ, cullable);
                     }
+
+                    pState.lastSeen.put(cullable.getUniqueId(), currentTick);
+                    VisibilityState oldState = pState.states.getOrDefault(cullable.getUniqueId(), VisibilityState.HIDDEN);
+
+                    if (state == VisibilityState.VISIBLE && oldState != VisibilityState.VISIBLE) {
+                        cullable.spawnFor(p);
+                    } else if (state != VisibilityState.VISIBLE && oldState == VisibilityState.VISIBLE) {
+                        cullable.destroyFor(p);
+                    }
+
+                    pState.states.put(cullable.getUniqueId(), state);
                 }
             }
 
