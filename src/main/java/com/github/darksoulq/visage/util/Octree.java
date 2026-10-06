@@ -4,11 +4,7 @@ import com.github.darksoulq.visage.VisageConfig;
 import org.bukkit.util.BoundingBox;
 import org.bukkit.util.Vector;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.function.Function;
 
@@ -174,12 +170,10 @@ public class Octree<N> implements Iterable<N> {
                 if (stack.isEmpty()) {
                     return false;
                 }
-                Octree<N> node = stack.remove(stack.size() - 1);
+                Octree<N> node = stack.removeLast();
                 currentEntries = node.entries.iterator();
                 if (node.children != null) {
-                    for (Octree<N> child : node.children) {
-                        stack.add(child);
-                    }
+                    Collections.addAll(stack, node.children);
                 }
             }
         }

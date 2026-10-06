@@ -2,6 +2,7 @@ package com.github.darksoulq.visage.entity;
 
 import com.github.darksoulq.visage.culling.Cullable;
 import com.github.darksoulq.visage.culling.CullingTracker;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
@@ -13,8 +14,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.function.Predicate;
 
 public class VirtualEntityGroup implements Cullable {
@@ -25,6 +28,7 @@ public class VirtualEntityGroup implements Cullable {
     private BoundingBox boundingBox;
     private Predicate<Player> visibilityFilter = null;
     private Quaternionf groupRotation;
+    private final Set<UUID> viewers = new CopyOnWriteArraySet<>();
 
     private World world;
 
@@ -42,7 +46,11 @@ public class VirtualEntityGroup implements Cullable {
     }
 
     public void addEntity(VirtualEntity<?> entity) {
-        addEntity(entity, new Vector3f(), new Quaternionf());
+        if (entity instanceof VirtualDisplay<?> display) {
+            addEntity(entity, new Vector3f(), new Quaternionf(display.getTransformation().getLeftRotation()));
+        } else {
+            addEntity(entity, new Vector3f(), new Quaternionf());
+        }
     }
 
     public void addEntity(VirtualEntity<?> entity, Vector3f localOffset, Quaternionf localRotation) {
@@ -51,11 +59,24 @@ public class VirtualEntityGroup implements Cullable {
         localTransforms.put(entity, new GroupTransform(localOffset, localRotation));
         updateChild(entity);
         CullingTracker.reindex(this, this::recalculateBounds);
+
+        for (UUID viewerId : viewers) {
+            Player p = Bukkit.getPlayer(viewerId);
+            if (p != null) {
+                entity.spawnFor(p);
+            }
+        }
     }
 
     public void removeEntity(VirtualEntity<?> entity) {
         if (children.remove(entity)) {
             localTransforms.remove(entity);
+            for (UUID viewerId : viewers) {
+                Player p = Bukkit.getPlayer(viewerId);
+                if (p != null) {
+                    entity.destroyFor(p);
+                }
+            }
             entity.destroyAll();
             CullingTracker.reindex(this, this::recalculateBounds);
         }
@@ -83,6 +104,7 @@ public class VirtualEntityGroup implements Cullable {
             Quaternionf finalRot = new Quaternionf(groupRotation).mul(transform.localRotation());
             org.bukkit.util.Transformation base = display.getTransformation();
             display.setTransformation(base.getTranslation(), finalRot, base.getScale(), base.getRightRotation());
+            display.flush();
         } else {
             Vector3f euler = new Vector3f();
             groupRotation.getEulerAnglesXYZ(euler);
@@ -158,15 +180,19 @@ public class VirtualEntityGroup implements Cullable {
 
     @Override
     public void spawnFor(Player player) {
-        for (VirtualEntity<?> child : children) {
-            child.spawnFor(player);
+        if (viewers.add(player.getUniqueId())) {
+            for (VirtualEntity<?> child : children) {
+                child.spawnFor(player);
+            }
         }
     }
 
     @Override
     public void destroyFor(Player player) {
-        for (VirtualEntity<?> child : children) {
-            child.destroyFor(player);
+        if (viewers.remove(player.getUniqueId())) {
+            for (VirtualEntity<?> child : children) {
+                child.destroyFor(player);
+            }
         }
     }
 
@@ -178,5 +204,6 @@ public class VirtualEntityGroup implements Cullable {
         }
         children.clear();
         localTransforms.clear();
+        viewers.clear();
     }
 }
