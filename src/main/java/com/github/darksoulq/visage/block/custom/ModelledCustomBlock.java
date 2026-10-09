@@ -1,4 +1,4 @@
-package com.github.darksoulq.visage.block;
+package com.github.darksoulq.visage.block.custom;
 
 import com.github.darksoulq.abyssallib.server.event.ActionResult;
 import com.github.darksoulq.abyssallib.world.block.CustomBlock;

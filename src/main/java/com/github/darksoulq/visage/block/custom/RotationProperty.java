@@ -1,4 +1,4 @@
-package com.github.darksoulq.visage.block;
+package com.github.darksoulq.visage.block.custom;
 
 import com.github.darksoulq.abyssallib.common.serialization.Codecs;
 import com.github.darksoulq.abyssallib.world.block.property.Property;

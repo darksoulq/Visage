@@ -1,7 +1,14 @@
 package com.github.darksoulq.visage.culling;
 
 import com.github.darksoulq.visage.VisageConfig;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.CollisionContext;
 import org.bukkit.World;
+import org.bukkit.craftbukkit.CraftWorld;
 import org.bukkit.util.BoundingBox;
 
 public class VisibilityCuller {
@@ -37,6 +44,23 @@ public class VisibilityCuller {
 
             if (dot < threshold && dist > boxRadius) {
                 return VisibilityState.CULLED_FRUSTUM;
+            }
+        }
+
+        ServerLevel serverLevel = ((CraftWorld) eyeWorld).getHandle();
+        ClipContext context = new ClipContext(
+            new Vec3(eyeX, eyeY, eyeZ),
+            new Vec3(cX, cY, cZ),
+            ClipContext.Block.VISUAL,
+            ClipContext.Fluid.NONE,
+            CollisionContext.empty()
+        );
+        BlockHitResult hit = serverLevel.clip(context);
+
+        if (hit.getType() == HitResult.Type.BLOCK) {
+            double hitDistSq = hit.getLocation().distanceToSqr(new Vec3(eyeX, eyeY, eyeZ));
+            if (hitDistSq < distSq) {
+                return VisibilityState.HIDDEN;
             }
         }
 

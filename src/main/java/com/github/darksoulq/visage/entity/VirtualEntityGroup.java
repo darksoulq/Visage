@@ -1,7 +1,10 @@
 package com.github.darksoulq.visage.entity;
 
-import com.github.darksoulq.visage.culling.Cullable;
 import com.github.darksoulq.visage.culling.CullingTracker;
+import com.github.darksoulq.visage.packet.PacketIO;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientGamePacketListener;
+import net.minecraft.network.protocol.game.ClientboundBundlePacket;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -18,12 +21,13 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
-public class VirtualEntityGroup implements Cullable {
+public class VirtualEntityGroup implements EntityGroupable {
     private final UUID uniqueId;
-    private final List<VirtualEntity<?>> children;
-    private final Map<VirtualEntity<?>, GroupTransform> localTransforms;
+    private final List<EntityGroupable> children;
+    private final Map<EntityGroupable, GroupTransform> localTransforms;
     private Location coreLocation;
     private BoundingBox boundingBox;
     private Predicate<Player> visibilityFilter = null;
@@ -45,7 +49,12 @@ public class VirtualEntityGroup implements Cullable {
         CullingTracker.register(this);
     }
 
-    public void addEntity(VirtualEntity<?> entity) {
+    public void modify(Consumer<VirtualEntityGroup> action) {
+        action.accept(this);
+        flush();
+    }
+
+    public void addEntity(EntityGroupable entity) {
         if (entity instanceof VirtualDisplay<?> display) {
             addEntity(entity, new Vector3f(), new Quaternionf(display.getTransformation().getLeftRotation()));
         } else {
@@ -53,7 +62,7 @@ public class VirtualEntityGroup implements Cullable {
         }
     }
 
-    public void addEntity(VirtualEntity<?> entity, Vector3f localOffset, Quaternionf localRotation) {
+    public void addEntity(EntityGroupable entity, Vector3f localOffset, Quaternionf localRotation) {
         CullingTracker.unregister(entity.getUniqueId());
         children.add(entity);
         localTransforms.put(entity, new GroupTransform(localOffset, localRotation));
@@ -68,7 +77,7 @@ public class VirtualEntityGroup implements Cullable {
         }
     }
 
-    public void removeEntity(VirtualEntity<?> entity) {
+    public void removeEntity(EntityGroupable entity) {
         if (children.remove(entity)) {
             localTransforms.remove(entity);
             for (UUID viewerId : viewers) {
@@ -84,47 +93,58 @@ public class VirtualEntityGroup implements Cullable {
 
     public void setGroupRotation(Quaternionf rotation) {
         this.groupRotation = rotation;
-        for (VirtualEntity<?> child : children) {
+        for (EntityGroupable child : children) {
             updateChild(child);
         }
         CullingTracker.reindex(this, this::recalculateBounds);
     }
 
-    private void updateChild(VirtualEntity<?> child) {
+    private void updateChild(EntityGroupable child) {
         GroupTransform transform = localTransforms.get(child);
         if (transform == null) return;
+        child.applyGroupTransform(coreLocation, transform.localTranslation(), transform.localRotation(), groupRotation);
+    }
 
-        Vector3f offset = new Vector3f(transform.localTranslation());
-        offset.rotate(groupRotation);
+    @Override
+    public void applyGroupTransform(Location coreLoc, Vector3f localTranslation, Quaternionf localRotation, Quaternionf groupRot) {
+        Vector3f offset = new Vector3f(localTranslation);
+        offset.rotate(groupRot);
+        Location newLoc = coreLoc.clone().add(offset.x, offset.y, offset.z);
+        this.setGroupRotation(new Quaternionf(groupRot).mul(localRotation));
+        this.teleport(newLoc);
+    }
 
-        Location newLoc = coreLocation.clone().add(offset.x, offset.y, offset.z);
+    @Override
+    public void collectPackets(List<Packet<? super ClientGamePacketListener>> packets) {
+        for (EntityGroupable child : children) {
+            child.collectPackets(packets);
+        }
+    }
 
-        if (child instanceof VirtualDisplay<?> display) {
-            child.teleport(newLoc);
-            Quaternionf finalRot = new Quaternionf(groupRotation).mul(transform.localRotation());
-            org.bukkit.util.Transformation base = display.getTransformation();
-            display.setTransformation(base.getTranslation(), finalRot, base.getScale(), base.getRightRotation());
-            display.flush();
-        } else {
-            Vector3f euler = new Vector3f();
-            groupRotation.getEulerAnglesXYZ(euler);
-            newLoc.setYaw((float) Math.toDegrees(-euler.y));
-            newLoc.setPitch((float) Math.toDegrees(euler.x));
-            child.teleport(newLoc);
+    @Override
+    public void flush() {
+        List<Packet<? super ClientGamePacketListener>> packets = new ArrayList<>();
+        collectPackets(packets);
+        if (!packets.isEmpty() && !viewers.isEmpty()) {
+            ClientboundBundlePacket bundle = new ClientboundBundlePacket(packets);
+            for (UUID viewerId : viewers) {
+                Player p = Bukkit.getPlayer(viewerId);
+                if (p != null) PacketIO.send(p, bundle);
+            }
         }
     }
 
     public void teleport(Location newLocation) {
         CullingTracker.reindex(this, () -> {
             this.coreLocation = newLocation.clone();
-            for (VirtualEntity<?> child : children) {
+            for (EntityGroupable child : children) {
                 updateChild(child);
             }
             recalculateBounds();
         });
     }
 
-    public List<VirtualEntity<?>> getChildren() {
+    public List<EntityGroupable> getChildren() {
         return Collections.unmodifiableList(children);
     }
 
@@ -137,7 +157,7 @@ public class VirtualEntityGroup implements Cullable {
         }
 
         BoundingBox merged = null;
-        for (VirtualEntity<?> child : children) {
+        for (EntityGroupable child : children) {
             if (merged == null) {
                 merged = child.getBoundingBox().clone();
             } else {
@@ -181,7 +201,7 @@ public class VirtualEntityGroup implements Cullable {
     @Override
     public void spawnFor(Player player) {
         if (viewers.add(player.getUniqueId())) {
-            for (VirtualEntity<?> child : children) {
+            for (EntityGroupable child : children) {
                 child.spawnFor(player);
             }
         }
@@ -190,7 +210,7 @@ public class VirtualEntityGroup implements Cullable {
     @Override
     public void destroyFor(Player player) {
         if (viewers.remove(player.getUniqueId())) {
-            for (VirtualEntity<?> child : children) {
+            for (EntityGroupable child : children) {
                 child.destroyFor(player);
             }
         }
@@ -199,7 +219,7 @@ public class VirtualEntityGroup implements Cullable {
     @Override
     public void destroyAll() {
         CullingTracker.unregister(this.uniqueId);
-        for (VirtualEntity<?> child : children) {
+        for (EntityGroupable child : children) {
             child.destroyAll();
         }
         children.clear();

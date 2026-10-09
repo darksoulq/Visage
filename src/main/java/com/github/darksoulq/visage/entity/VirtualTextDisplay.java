@@ -11,6 +11,15 @@ import java.lang.reflect.Method;
 
 public class VirtualTextDisplay extends VirtualDisplay<TextDisplay> {
 
+    private static Method SET_BACKGROUND_COLOR_METHOD;
+
+    static {
+        try {
+            SET_BACKGROUND_COLOR_METHOD = TextDisplay.class.getDeclaredMethod("setBackgroundColor", int.class);
+            SET_BACKGROUND_COLOR_METHOD.setAccessible(true);
+        } catch (Exception ignored) {}
+    }
+
     private net.kyori.adventure.text.Component text = net.kyori.adventure.text.Component.empty();
     private int backgroundColor = 1073741824;
     private int lineWidth = 200;
@@ -46,11 +55,11 @@ public class VirtualTextDisplay extends VirtualDisplay<TextDisplay> {
     public void setBackgroundColor(int argb) {
         this.backgroundColor = argb;
         nmsEntity.getEntityData().set(TextDisplay.DATA_BACKGROUND_COLOR_ID, argb);
-        try {
-            Method m = TextDisplay.class.getDeclaredMethod("setBackgroundColor", int.class);
-            m.setAccessible(true);
-            m.invoke(nmsEntity, argb);
-        } catch (Exception ignored) {}
+        if (SET_BACKGROUND_COLOR_METHOD != null) {
+            try {
+                SET_BACKGROUND_COLOR_METHOD.invoke(nmsEntity, argb);
+            } catch (Exception ignored) {}
+        }
     }
 
     public void setLineWidth(int width) {

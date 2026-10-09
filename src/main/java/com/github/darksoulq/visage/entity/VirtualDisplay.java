@@ -8,7 +8,18 @@ import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
+import java.lang.reflect.Method;
+
 public abstract class VirtualDisplay<T extends Display> extends VirtualEntity<T> {
+
+    private static Method SET_TELEPORT_DURATION_METHOD;
+
+    static {
+        try {
+            SET_TELEPORT_DURATION_METHOD = Display.class.getDeclaredMethod("setPosRotInterpolationDuration", int.class);
+            SET_TELEPORT_DURATION_METHOD.setAccessible(true);
+        } catch (Exception ignored) {}
+    }
 
     protected org.bukkit.util.Transformation transformation = new org.bukkit.util.Transformation(
         new Vector3f(), new Quaternionf(), new Vector3f(1, 1, 1), new Quaternionf()
@@ -16,6 +27,7 @@ public abstract class VirtualDisplay<T extends Display> extends VirtualEntity<T>
     protected Billboard billboard = Billboard.FIXED;
     protected int interpolationDuration = 0;
     protected int interpolationDelay = 0;
+    protected int teleportDuration = 0;
     protected float viewRange = 1.0f;
     protected float shadowRadius = 0.0f;
     protected float shadowStrength = 1.0f;
@@ -74,6 +86,15 @@ public abstract class VirtualDisplay<T extends Display> extends VirtualEntity<T>
         nmsEntity.setTransformationInterpolationDelay(ticks);
     }
 
+    public void setTeleportDuration(int ticks) {
+        this.teleportDuration = ticks;
+        if (SET_TELEPORT_DURATION_METHOD != null) {
+            try {
+                SET_TELEPORT_DURATION_METHOD.invoke(nmsEntity, ticks);
+            } catch (Exception ignored) {}
+        }
+    }
+
     public void setViewRange(float range) {
         this.viewRange = range;
         nmsEntity.setViewRange(range);
@@ -128,6 +149,10 @@ public abstract class VirtualDisplay<T extends Display> extends VirtualEntity<T>
 
     public int getInterpolationDelay() {
         return interpolationDelay;
+    }
+
+    public int getTeleportDuration() {
+        return teleportDuration;
     }
 
     public float getViewRange() {

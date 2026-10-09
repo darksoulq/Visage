@@ -1,4 +1,4 @@
-package com.github.darksoulq.visage.block;
+package com.github.darksoulq.visage.block.custom;
 
 public enum Attachment {
     FLOOR,

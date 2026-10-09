@@ -55,6 +55,15 @@ public class CullingTracker {
         worldOctrees.remove(world);
     }
 
+    public static void clearPlayer(Player player) {
+        if (player == null) return;
+        UUID uuid = player.getUniqueId();
+        playerTracking.remove(uuid);
+        for (Cullable cullable : cullables.values()) {
+            cullable.destroyFor(player);
+        }
+    }
+
     public static void register(Cullable cullable) {
         cullables.put(cullable.getUniqueId(), cullable);
         World world = cullable.getWorld();

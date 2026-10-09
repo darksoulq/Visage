@@ -1,5 +1,6 @@
 package com.github.darksoulq.visage;
 
+import com.github.darksoulq.visage.block.VirtualBlockTracker;
 import com.github.darksoulq.visage.culling.CullingTracker;
 import com.github.darksoulq.visage.event.InteractionListener;
 import com.github.darksoulq.visage.event.VisageListener;
@@ -10,8 +11,12 @@ import org.bukkit.plugin.Plugin;
 
 public class Visage {
 
-    public static void init(Plugin plugin) {
+    private static Plugin plugin;
+
+    public static void init(Plugin pluginInstance) {
+        plugin = pluginInstance;
         CullingTracker.start(plugin);
+        VirtualBlockTracker.start(plugin);
         InteractionListener.register(plugin);
         VisageListener.register(plugin);
 
@@ -20,8 +25,13 @@ public class Visage {
         }
     }
 
+    public static Plugin getPlugin() {
+        return plugin;
+    }
+
     public static void shutdown() {
         CullingTracker.stop();
+        VirtualBlockTracker.stop();
         for (Player player : Bukkit.getOnlinePlayers()) {
             PacketInterceptor.uninject(player);
         }

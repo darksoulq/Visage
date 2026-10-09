@@ -1,6 +1,7 @@
-package com.github.darksoulq.visage.block;
+package com.github.darksoulq.visage.block.custom;
 
 import com.github.darksoulq.abyssallib.world.block.BlockEntity;
+import com.github.darksoulq.visage.entity.EntityGroupable;
 import com.github.darksoulq.visage.entity.VirtualDisplay;
 import com.github.darksoulq.visage.entity.VirtualEntity;
 import com.github.darksoulq.visage.entity.VirtualEntityGroup;
@@ -35,7 +36,7 @@ public abstract class ModelledBlockEntity extends BlockEntity {
             Block b = getBlock().getLocation().getBlock();
             int blockLight = b.getLightFromBlocks();
             int skyLight = b.getLightFromSky();
-            for (VirtualEntity<?> child : modelGroup.getChildren()) {
+            for (EntityGroupable child : modelGroup.getChildren()) {
                 if (child instanceof VirtualDisplay<?> display) {
                     display.setBrightness(blockLight, skyLight);
                     display.flush();
