@@ -48,22 +48,47 @@ public class VisibilityCuller {
         }
 
         ServerLevel serverLevel = ((CraftWorld) eyeWorld).getHandle();
+        Vec3 eye = new Vec3(eyeX, eyeY, eyeZ);
+        Vec3 center = new Vec3(cX, cY, cZ);
+
+        if (isPointVisible(serverLevel, eye, center)) {
+            return VisibilityState.VISIBLE;
+        }
+
+        Vec3[] corners = new Vec3[]{
+            new Vec3(box.getMinX(), box.getMinY(), box.getMinZ()),
+            new Vec3(box.getMinX(), box.getMinY(), box.getMaxZ()),
+            new Vec3(box.getMinX(), box.getMaxY(), box.getMinZ()),
+            new Vec3(box.getMinX(), box.getMaxY(), box.getMaxZ()),
+            new Vec3(box.getMaxX(), box.getMinY(), box.getMinZ()),
+            new Vec3(box.getMaxX(), box.getMinY(), box.getMaxZ()),
+            new Vec3(box.getMaxX(), box.getMaxY(), box.getMinZ()),
+            new Vec3(box.getMaxX(), box.getMaxY(), box.getMaxZ())
+        };
+
+        for (Vec3 corner : corners) {
+            if (isPointVisible(serverLevel, eye, corner)) {
+                return VisibilityState.VISIBLE;
+            }
+        }
+
+        return VisibilityState.HIDDEN;
+    }
+
+    private static boolean isPointVisible(ServerLevel level, Vec3 eye, Vec3 target) {
         ClipContext context = new ClipContext(
-            new Vec3(eyeX, eyeY, eyeZ),
-            new Vec3(cX, cY, cZ),
+            eye,
+            target,
             ClipContext.Block.VISUAL,
             ClipContext.Fluid.NONE,
             CollisionContext.empty()
         );
-        BlockHitResult hit = serverLevel.clip(context);
+        BlockHitResult hit = level.clip(context);
 
         if (hit.getType() == HitResult.Type.BLOCK) {
-            double hitDistSq = hit.getLocation().distanceToSqr(new Vec3(eyeX, eyeY, eyeZ));
-            if (hitDistSq < distSq) {
-                return VisibilityState.HIDDEN;
-            }
+            return hit.getLocation().distanceToSqr(eye) >= target.distanceToSqr(eye) - 0.01;
         }
 
-        return VisibilityState.VISIBLE;
+        return true;
     }
 }
