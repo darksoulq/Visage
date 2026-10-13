@@ -115,7 +115,6 @@ public class CullingTracker {
 
     private static void tickTracking() {
         int currentTick = ticks;
-        double fovThreshold = Math.cos(Math.toRadians(VisageConfig.FRUSTUM_THRESHOLD / 2.0));
         double maxGlobalDist = VisageConfig.GLOBAL_MAX_RENDER_DISTANCE;
 
         for (Player p : Bukkit.getOnlinePlayers()) {
@@ -137,21 +136,12 @@ public class CullingTracker {
 
                 for (Cullable cullable : octree.query(queryBox)) {
                     Predicate<Player> filter = cullable.getVisibilityFilter();
-                    VisibilityState state = VisibilityState.VISIBLE;
+                    VisibilityState state;
 
                     if (filter != null && !filter.test(p)) {
                         state = VisibilityState.HIDDEN;
                     } else {
-                        double distSq = eyeLoc.distanceSquared(cullable.getLocation());
-                        double cullDist = Math.min(cullable.getRenderDistance(), maxGlobalDist);
-
-                        if (distSq > cullDist * cullDist) {
-                            state = VisibilityState.CULLED_DISTANCE;
-                        } else if (cullable.isFrustumCullingEnabled() && !isInsideFrustum(eyeLoc, dir, cullable.getBoundingBox(), fovThreshold)) {
-                            state = VisibilityState.CULLED_FRUSTUM;
-                        } else if (cullable.isOcclusionCullingEnabled() && isOccluded(world, eyeLoc, cullable.getBoundingBox())) {
-                            state = VisibilityState.CULLED_OCCLUSION;
-                        }
+                        state = VisibilityCuller.getVisibility(world, eyeX, eyeY, eyeZ, dir.getX(), dir.getY(), dir.getZ(), cullable);
                     }
 
                     pState.lastSeen.put(cullable.getUniqueId(), currentTick);
@@ -185,40 +175,5 @@ public class CullingTracker {
         }
 
         playerTracking.keySet().removeIf(uuid -> Bukkit.getPlayer(uuid) == null);
-    }
-
-    private static boolean isInsideFrustum(Location eyeLoc, Vector dir, BoundingBox box, double threshold) {
-        Vector eyeVec = eyeLoc.toVector();
-        Vector[] corners = new Vector[]{
-            new Vector(box.getMinX(), box.getMinY(), box.getMinZ()),
-            new Vector(box.getMinX(), box.getMinY(), box.getMaxZ()),
-            new Vector(box.getMinX(), box.getMaxY(), box.getMinZ()),
-            new Vector(box.getMinX(), box.getMaxY(), box.getMaxZ()),
-            new Vector(box.getMaxX(), box.getMinY(), box.getMinZ()),
-            new Vector(box.getMaxX(), box.getMinY(), box.getMaxZ()),
-            new Vector(box.getMaxX(), box.getMaxY(), box.getMinZ()),
-            new Vector(box.getMaxX(), box.getMaxY(), box.getMaxZ())
-        };
-
-        for (Vector corner : corners) {
-            Vector toCorner = corner.subtract(eyeVec);
-            if (toCorner.lengthSquared() < 4.0) return true;
-            if (dir.dot(toCorner.normalize()) >= threshold) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static boolean isOccluded(World world, Location eyeLoc, BoundingBox box) {
-        Vector eyeVec = eyeLoc.toVector();
-        Vector center = box.getCenter();
-        Vector dir = center.clone().subtract(eyeVec);
-        double dist = dir.length();
-        if (dist < 2.0) return false;
-        dir.normalize();
-
-        org.bukkit.util.RayTraceResult result = world.rayTraceBlocks(eyeLoc, dir, dist, org.bukkit.FluidCollisionMode.NEVER, true);
-        return result != null && result.getHitBlock() != null;
     }
 }
