@@ -18,4 +18,10 @@ public interface Cullable {
     void destroyAll();
     Predicate<Player> getVisibilityFilter();
     void setVisibilityFilter(Predicate<Player> filter);
+    double getRenderDistance();
+    void setRenderDistance(double distance);
+    boolean isFrustumCullingEnabled();
+    void setFrustumCullingEnabled(boolean enabled);
+    boolean isOcclusionCullingEnabled();
+    void setOcclusionCullingEnabled(boolean enabled);
 }

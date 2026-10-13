@@ -1,8 +1,9 @@
 package com.github.darksoulq.visage.entity;
 
+import com.github.darksoulq.visage.util.nms.NMSEntities;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Display.ItemDisplay;
-import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.ItemDisplayContext;
 import org.bukkit.Location;
 import org.bukkit.craftbukkit.inventory.CraftItemStack;
@@ -19,7 +20,7 @@ public class VirtualItemDisplay extends VirtualDisplay<ItemDisplay> {
 
     @Override
     protected ItemDisplay createNmsEntity(ServerLevel level, Location location) {
-        ItemDisplay display = new ItemDisplay(EntityTypes.ITEM_DISPLAY, level);
+        ItemDisplay display = new ItemDisplay(NMSEntities.ITEM_DISPLAY, level);
         display.setPos(location.getX(), location.getY(), location.getZ());
         display.setYRot(location.getYaw());
         display.setXRot(location.getPitch());

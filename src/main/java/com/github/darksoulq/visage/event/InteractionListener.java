@@ -4,13 +4,7 @@ import com.github.darksoulq.visage.Visage;
 import com.github.darksoulq.visage.block.VirtualBlock;
 import com.github.darksoulq.visage.block.VirtualBlockTracker;
 import com.github.darksoulq.visage.entity.VirtualEntity;
-import net.minecraft.core.BlockPos;
-import net.minecraft.network.protocol.game.ServerboundAttackPacket;
-import net.minecraft.network.protocol.game.ServerboundInteractPacket;
-import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
-import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.phys.BlockHitResult;
+import com.github.darksoulq.visage.util.nms.NMSPackets;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.event.EventHandler;
@@ -28,65 +22,71 @@ public class InteractionListener implements Listener {
     @EventHandler
     public void onPacketReceive(PacketReceiveEvent event) {
         Object rawPacket = event.getPacket();
+        String name = rawPacket.getClass().getSimpleName();
 
-        if (rawPacket instanceof ServerboundInteractPacket(int entityId, InteractionHand hand, net.minecraft.world.phys.Vec3 location, boolean sneaking)) {
+        if (name.equals("ServerboundInteractPacket")) {
+            int entityId = NMSPackets.getEntityId(rawPacket);
             VirtualEntity<?> virtualEntity = VirtualEntity.getById(entityId);
 
             if (virtualEntity != null) {
                 event.setCancelled(true);
+                boolean isAttack = NMSPackets.isAttack(rawPacket);
+                InteractAction action = isAttack ? InteractAction.ATTACK : InteractAction.INTERACT;
 
-                InteractAction action = InteractAction.INTERACT;
-                EquipmentSlot slot = hand == InteractionHand.MAIN_HAND ? EquipmentSlot.HAND : EquipmentSlot.OFF_HAND;
-                Vector pos = new Vector(location.x(), location.y(), location.z());
-
-                VirtualInteractEvent interactEvent = new VirtualInteractEvent(event.getPlayer(), virtualEntity, action, slot, pos, sneaking);
-                Bukkit.getPluginManager().callEvent(interactEvent);
-            }
-        } else if (rawPacket instanceof ServerboundAttackPacket(int entityId)) {
-            VirtualEntity<?> virtualEntity = VirtualEntity.getById(entityId);
-
-            if (virtualEntity != null) {
-                event.setCancelled(true);
-
-                InteractAction action = InteractAction.ATTACK;
+                Object handObj = NMSPackets.getHand(rawPacket);
                 EquipmentSlot slot = EquipmentSlot.HAND;
-                Vector pos = null;
-                boolean sneaking = false;
+                if (handObj != null && handObj.toString().contains("OFF_HAND")) {
+                    slot = EquipmentSlot.OFF_HAND;
+                }
+
+                Vector pos = NMSPackets.getVecLocation(rawPacket);
+                boolean sneaking = NMSPackets.isSneaking(rawPacket);
 
                 VirtualInteractEvent interactEvent = new VirtualInteractEvent(event.getPlayer(), virtualEntity, action, slot, pos, sneaking);
                 Bukkit.getPluginManager().callEvent(interactEvent);
             }
-        } else if (rawPacket instanceof ServerboundPlayerActionPacket actionPacket) {
-            BlockPos pos = actionPacket.getPos();
-            Location loc = new Location(event.getPlayer().getWorld(), pos.getX(), pos.getY(), pos.getZ());
-            VirtualBlock block = VirtualBlockTracker.getBlock(loc);
+        } else if (name.equals("ServerboundAttackPacket")) {
+            int entityId = NMSPackets.getEntityId(rawPacket);
+            VirtualEntity<?> virtualEntity = VirtualEntity.getById(entityId);
 
-            if (block != null && block.isVisibleTo(event.getPlayer())) {
-                Bukkit.getScheduler().runTaskLater(Visage.getPlugin(), () -> {
-                    if (event.getPlayer().isOnline()) {
-                        event.getPlayer().sendBlockChange(block.getLocation(), block.getBlockData());
-                    }
-                }, 1L);
-
-                InteractAction action = actionPacket.getAction().name().contains("DESTROY") ? InteractAction.ATTACK : InteractAction.INTERACT;
-                VirtualBlockInteractEvent interactEvent = new VirtualBlockInteractEvent(event.getPlayer(), block, action);
+            if (virtualEntity != null) {
+                event.setCancelled(true);
+                VirtualInteractEvent interactEvent = new VirtualInteractEvent(event.getPlayer(), virtualEntity, InteractAction.ATTACK, EquipmentSlot.HAND, null, false);
                 Bukkit.getPluginManager().callEvent(interactEvent);
             }
-        } else if (rawPacket instanceof ServerboundUseItemOnPacket usePacket) {
-            BlockHitResult hitResult = usePacket.hitResult();
-            BlockPos pos = hitResult.getBlockPos();
-            Location loc = new Location(event.getPlayer().getWorld(), pos.getX(), pos.getY(), pos.getZ());
-            VirtualBlock block = VirtualBlockTracker.getBlock(loc);
+        } else if (name.equals("ServerboundPlayerActionPacket")) {
+            Location loc = NMSPackets.getActionLocation(rawPacket, event.getPlayer().getWorld());
+            if (loc != null) {
+                VirtualBlock block = VirtualBlockTracker.getBlock(loc);
 
-            if (block != null && block.isVisibleTo(event.getPlayer())) {
-                Bukkit.getScheduler().runTaskLater(Visage.getPlugin(), () -> {
-                    if (event.getPlayer().isOnline()) {
-                        event.getPlayer().sendBlockChange(block.getLocation(), block.getBlockData());
-                    }
-                }, 1L);
+                if (block != null && block.isVisibleTo(event.getPlayer())) {
+                    Bukkit.getScheduler().runTaskLater(Visage.getPlugin(), () -> {
+                        if (event.getPlayer().isOnline()) {
+                            event.getPlayer().sendBlockChange(block.getLocation(), block.getBlockData());
+                        }
+                    }, 1L);
 
-                VirtualBlockInteractEvent interactEvent = new VirtualBlockInteractEvent(event.getPlayer(), block, InteractAction.INTERACT);
-                Bukkit.getPluginManager().callEvent(interactEvent);
+                    String actionName = NMSPackets.getActionType(rawPacket);
+                    InteractAction action = actionName.contains("DESTROY") ? InteractAction.ATTACK : InteractAction.INTERACT;
+                    VirtualBlockInteractEvent interactEvent = new VirtualBlockInteractEvent(event.getPlayer(), block, action);
+                    Bukkit.getPluginManager().callEvent(interactEvent);
+                }
+            }
+        } else if (name.equals("ServerboundUseItemOnPacket")) {
+            Location loc = NMSPackets.getUseItemLocation(rawPacket, event.getPlayer().getWorld());
+            if (loc != null) {
+                VirtualBlock block = VirtualBlockTracker.getBlock(loc);
+
+                if (block != null && block.isVisibleTo(event.getPlayer())) {
+                    Bukkit.getScheduler().runTaskLater(Visage.getPlugin(), () -> {
+                        if (event.getPlayer().isOnline()) {
+                            event.getPlayer().sendBlockChange(block.getLocation(), block.getBlockData());
+                        }
+                    }, 1L);
+
+                    VirtualBlockInteractEvent interactEvent = new VirtualBlockInteractEvent(event.getPlayer(), block, InteractAction.INTERACT);
+                    Bukkit.getPluginManager().callEvent(interactEvent);
+                }
             }
         }
     }

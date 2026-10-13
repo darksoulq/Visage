@@ -11,6 +11,7 @@ import org.bukkit.block.Block;
 public abstract class ModelledBlockEntity extends BlockEntity {
 
     protected VirtualEntityGroup modelGroup;
+    protected boolean syncLight = true;
 
     public ModelledBlockEntity(ModelledCustomBlock block) {
         super(block);
@@ -32,6 +33,7 @@ public abstract class ModelledBlockEntity extends BlockEntity {
     public abstract void updateModel();
 
     public void syncLight() {
+        if (!syncLight) return;
         if (modelGroup != null) {
             Block b = getBlock().getLocation().getBlock();
             int blockLight = b.getLightFromBlocks();

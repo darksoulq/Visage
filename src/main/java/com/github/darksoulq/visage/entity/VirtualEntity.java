@@ -1,5 +1,6 @@
 package com.github.darksoulq.visage.entity;
 
+import com.github.darksoulq.visage.VisageConfig;
 import com.github.darksoulq.visage.culling.CullingTracker;
 import com.github.darksoulq.visage.packet.PacketIO;
 import io.papermc.paper.adventure.PaperAdventure;
@@ -9,6 +10,7 @@ import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
 import net.minecraft.network.protocol.game.ClientboundBundlePacket;
 import net.minecraft.network.protocol.game.ClientboundRemoveEntitiesPacket;
 import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket;
+import net.minecraft.network.protocol.game.ClientboundRotateHeadPacket;
 import net.minecraft.network.protocol.game.ClientboundSetPassengersPacket;
 import net.minecraft.network.protocol.game.ClientboundTeleportEntityPacket;
 import net.minecraft.server.level.ServerLevel;
@@ -55,7 +57,12 @@ public abstract class VirtualEntity<T extends Entity> implements EntityGroupable
     protected Predicate<Player> visibilityFilter = null;
     protected final List<VirtualEntity<?>> passengers = new ArrayList<>();
 
+    protected double renderDistance = VisageConfig.GLOBAL_MAX_RENDER_DISTANCE;
+    protected boolean frustumCullingEnabled = true;
+    protected boolean occlusionCullingEnabled = true;
+
     protected World world;
+    protected ClientboundTeleportEntityPacket pendingTeleport = null;
 
     public VirtualEntity(Location location) {
         this.location = location.clone();
@@ -96,6 +103,12 @@ public abstract class VirtualEntity<T extends Entity> implements EntityGroupable
         if (data != null) {
             packets.add(new ClientboundSetEntityDataPacket(nmsEntity.getId(), data));
         }
+
+        if (pendingTeleport != null) {
+            packets.add(pendingTeleport);
+            packets.add(new ClientboundRotateHeadPacket(nmsEntity, (byte) (nmsEntity.getYRot() * 256.0F / 360.0F)));
+            pendingTeleport = null;
+        }
     }
 
     @Override
@@ -122,7 +135,6 @@ public abstract class VirtualEntity<T extends Entity> implements EntityGroupable
             Quaternionf finalRot = new Quaternionf(groupRotation).mul(localRotation);
             org.bukkit.util.Transformation base = display.getTransformation();
             display.setTransformation(base.getTranslation(), finalRot, base.getScale(), base.getRightRotation());
-            display.flush();
         } else {
             Vector3f euler = new Vector3f();
             groupRotation.getEulerAnglesXYZ(euler);
@@ -146,20 +158,16 @@ public abstract class VirtualEntity<T extends Entity> implements EntityGroupable
             this.nmsEntity.setPos(newLocation.getX(), newLocation.getY(), newLocation.getZ());
             this.nmsEntity.setYRot(newLocation.getYaw());
             this.nmsEntity.setXRot(newLocation.getPitch());
+            this.nmsEntity.setYHeadRot(newLocation.getYaw());
 
-            if (!viewers.isEmpty()) {
-                PositionMoveRotation pos = new PositionMoveRotation(
-                    new Vec3(newLocation.getX(), newLocation.getY(), newLocation.getZ()),
-                    Vec3.ZERO,
-                    newLocation.getYaw(),
-                    newLocation.getPitch()
-                );
-                ClientboundTeleportEntityPacket packet = new ClientboundTeleportEntityPacket(nmsEntity.getId(), pos, Collections.emptySet(), false);
-                for (UUID viewerId : viewers) {
-                    Player p = Bukkit.getPlayer(viewerId);
-                    if (p != null) PacketIO.send(p, packet);
-                }
-            }
+            PositionMoveRotation pos = new PositionMoveRotation(
+                new Vec3(newLocation.getX(), newLocation.getY(), newLocation.getZ()),
+                Vec3.ZERO,
+                newLocation.getYaw(),
+                newLocation.getPitch()
+            );
+
+            this.pendingTeleport = new ClientboundTeleportEntityPacket(nmsEntity.getId(), pos, Collections.emptySet(), false);
         });
     }
 
@@ -220,6 +228,36 @@ public abstract class VirtualEntity<T extends Entity> implements EntityGroupable
     @Override
     public void setVisibilityFilter(Predicate<Player> filter) {
         this.visibilityFilter = filter;
+    }
+
+    @Override
+    public double getRenderDistance() {
+        return renderDistance;
+    }
+
+    @Override
+    public void setRenderDistance(double distance) {
+        this.renderDistance = distance;
+    }
+
+    @Override
+    public boolean isFrustumCullingEnabled() {
+        return frustumCullingEnabled;
+    }
+
+    @Override
+    public void setFrustumCullingEnabled(boolean enabled) {
+        this.frustumCullingEnabled = enabled;
+    }
+
+    @Override
+    public boolean isOcclusionCullingEnabled() {
+        return occlusionCullingEnabled;
+    }
+
+    @Override
+    public void setOcclusionCullingEnabled(boolean enabled) {
+        this.occlusionCullingEnabled = enabled;
     }
 
     @Override

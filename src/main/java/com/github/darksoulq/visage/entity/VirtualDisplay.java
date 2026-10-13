@@ -1,5 +1,6 @@
 package com.github.darksoulq.visage.entity;
 
+import com.github.darksoulq.visage.util.nms.NMSMath;
 import com.mojang.math.Transformation;
 import net.minecraft.util.Brightness;
 import net.minecraft.world.entity.Display;
@@ -8,18 +9,7 @@ import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
-import java.lang.reflect.Method;
-
 public abstract class VirtualDisplay<T extends Display> extends VirtualEntity<T> {
-
-    private static Method SET_TELEPORT_DURATION_METHOD;
-
-    static {
-        try {
-            SET_TELEPORT_DURATION_METHOD = Display.class.getDeclaredMethod("setPosRotInterpolationDuration", int.class);
-            SET_TELEPORT_DURATION_METHOD.setAccessible(true);
-        } catch (Exception ignored) {}
-    }
 
     protected org.bukkit.util.Transformation transformation = new org.bukkit.util.Transformation(
         new Vector3f(), new Quaternionf(), new Vector3f(1, 1, 1), new Quaternionf()
@@ -57,10 +47,10 @@ public abstract class VirtualDisplay<T extends Display> extends VirtualEntity<T>
     public void setTransformation(Matrix4f matrix) {
         Transformation nmsTransform = new Transformation(matrix);
         this.transformation = new org.bukkit.util.Transformation(
-            new Vector3f(nmsTransform.translation()),
-            new Quaternionf(nmsTransform.leftRotation()),
-            new Vector3f(nmsTransform.scale()),
-            new Quaternionf(nmsTransform.rightRotation())
+            new Vector3f(NMSMath.getTranslation(nmsTransform)),
+            new Quaternionf(NMSMath.getLeftRotation(nmsTransform)),
+            new Vector3f(NMSMath.getScale(nmsTransform)),
+            new Quaternionf(NMSMath.getRightRotation(nmsTransform))
         );
         nmsEntity.setTransformation(nmsTransform);
     }
@@ -88,11 +78,7 @@ public abstract class VirtualDisplay<T extends Display> extends VirtualEntity<T>
 
     public void setTeleportDuration(int ticks) {
         this.teleportDuration = ticks;
-        if (SET_TELEPORT_DURATION_METHOD != null) {
-            try {
-                SET_TELEPORT_DURATION_METHOD.invoke(nmsEntity, ticks);
-            } catch (Exception ignored) {}
-        }
+        nmsEntity.getEntityData().set(net.minecraft.world.entity.Display.DATA_POS_ROT_INTERPOLATION_DURATION_ID, ticks);
     }
 
     public void setViewRange(float range) {

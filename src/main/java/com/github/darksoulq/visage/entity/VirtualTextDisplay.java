@@ -1,9 +1,10 @@
 package com.github.darksoulq.visage.entity;
 
 import io.papermc.paper.adventure.PaperAdventure;
+import com.github.darksoulq.visage.util.nms.NMSEntities;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Display.TextDisplay;
-import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.EntityType;
 import org.bukkit.Color;
 import org.bukkit.Location;
 
@@ -35,7 +36,7 @@ public class VirtualTextDisplay extends VirtualDisplay<TextDisplay> {
 
     @Override
     protected TextDisplay createNmsEntity(ServerLevel level, Location location) {
-        TextDisplay display = new TextDisplay(EntityTypes.TEXT_DISPLAY, level);
+        TextDisplay display = new TextDisplay(NMSEntities.TEXT_DISPLAY, level);
         display.setPos(location.getX(), location.getY(), location.getZ());
         display.setYRot(location.getYaw());
         display.setXRot(location.getPitch());
@@ -107,7 +108,7 @@ public class VirtualTextDisplay extends VirtualDisplay<TextDisplay> {
         if (state) {
             flags |= flagMask;
         } else {
-            flags &= ~flagMask;
+            flags &= (byte) ~flagMask;
         }
         nmsEntity.setFlags(flags);
     }

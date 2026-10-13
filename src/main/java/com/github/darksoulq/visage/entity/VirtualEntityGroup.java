@@ -1,5 +1,6 @@
 package com.github.darksoulq.visage.entity;
 
+import com.github.darksoulq.visage.VisageConfig;
 import com.github.darksoulq.visage.culling.CullingTracker;
 import com.github.darksoulq.visage.packet.PacketIO;
 import net.minecraft.network.protocol.Packet;
@@ -33,6 +34,10 @@ public class VirtualEntityGroup implements EntityGroupable {
     private Predicate<Player> visibilityFilter = null;
     private Quaternionf groupRotation;
     private final Set<UUID> viewers = new CopyOnWriteArraySet<>();
+
+    protected double renderDistance = VisageConfig.GLOBAL_MAX_RENDER_DISTANCE;
+    protected boolean frustumCullingEnabled = true;
+    protected boolean occlusionCullingEnabled = true;
 
     private World world;
 
@@ -176,6 +181,36 @@ public class VirtualEntityGroup implements EntityGroupable {
     @Override
     public void setVisibilityFilter(Predicate<Player> filter) {
         this.visibilityFilter = filter;
+    }
+
+    @Override
+    public double getRenderDistance() {
+        return renderDistance;
+    }
+
+    @Override
+    public void setRenderDistance(double distance) {
+        this.renderDistance = distance;
+    }
+
+    @Override
+    public boolean isFrustumCullingEnabled() {
+        return frustumCullingEnabled;
+    }
+
+    @Override
+    public void setFrustumCullingEnabled(boolean enabled) {
+        this.frustumCullingEnabled = enabled;
+    }
+
+    @Override
+    public boolean isOcclusionCullingEnabled() {
+        return occlusionCullingEnabled;
+    }
+
+    @Override
+    public void setOcclusionCullingEnabled(boolean enabled) {
+        this.occlusionCullingEnabled = enabled;
     }
 
     @Override

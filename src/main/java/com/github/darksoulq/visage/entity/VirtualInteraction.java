@@ -1,8 +1,9 @@
 package com.github.darksoulq.visage.entity;
 
+import com.github.darksoulq.visage.util.nms.NMSEntities;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.Interaction;
+import net.minecraft.world.entity.EntityType;
 import org.bukkit.Location;
 
 public class VirtualInteraction extends VirtualEntity<Interaction> {
@@ -16,7 +17,7 @@ public class VirtualInteraction extends VirtualEntity<Interaction> {
 
     @Override
     protected Interaction createNmsEntity(ServerLevel level, Location location) {
-        Interaction interaction = new Interaction(EntityTypes.INTERACTION, level);
+        Interaction interaction = new Interaction(NMSEntities.INTERACTION, level);
         interaction.setPos(location.getX(), location.getY(), location.getZ());
         interaction.setYRot(location.getYaw());
         interaction.setXRot(location.getPitch());

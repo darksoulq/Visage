@@ -25,10 +25,11 @@ public class VisibilityCuller {
         double dZ = cZ - eyeZ;
         double distSq = dX * dX + dY * dY + dZ * dZ;
 
-        if (distSq > VisageConfig.CULLING_DISTANCE_SQUARED) return VisibilityState.CULLED_DISTANCE;
+        double maxDist = Math.min(cullable.getRenderDistance(), VisageConfig.GLOBAL_MAX_RENDER_DISTANCE);
+        if (distSq > maxDist * maxDist) return VisibilityState.CULLED_DISTANCE;
 
         double dist = Math.sqrt(distSq);
-        if (dist > 0) {
+        if (cullable.isFrustumCullingEnabled() && dist > 0) {
             double normX = dX / dist;
             double normY = dY / dist;
             double normZ = dZ / dist;
@@ -40,11 +41,16 @@ public class VisibilityCuller {
             double sZ = box.getMaxZ() - box.getMinZ();
             double boxRadius = Math.sqrt(sX * sX + sY * sY + sZ * sZ) * 0.5;
 
-            double threshold = VisageConfig.FRUSTUM_THRESHOLD * (boxRadius / dist);
+            double baseThreshold = Math.cos(Math.toRadians(VisageConfig.FRUSTUM_THRESHOLD / 2.0));
+            double threshold = baseThreshold - (boxRadius / dist);
 
             if (dot < threshold && dist > boxRadius) {
                 return VisibilityState.CULLED_FRUSTUM;
             }
+        }
+
+        if (!cullable.isOcclusionCullingEnabled()) {
+            return VisibilityState.VISIBLE;
         }
 
         ServerLevel serverLevel = ((CraftWorld) eyeWorld).getHandle();
@@ -72,7 +78,7 @@ public class VisibilityCuller {
             }
         }
 
-        return VisibilityState.HIDDEN;
+        return VisibilityState.CULLED_OCCLUSION;
     }
 
     private static boolean isPointVisible(ServerLevel level, Vec3 eye, Vec3 target) {

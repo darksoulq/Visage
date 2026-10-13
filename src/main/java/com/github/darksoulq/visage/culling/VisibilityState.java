@@ -4,5 +4,6 @@ public enum VisibilityState {
     VISIBLE,
     CULLED_DISTANCE,
     CULLED_FRUSTUM,
+    CULLED_OCCLUSION,
     HIDDEN
 }

@@ -3,7 +3,7 @@ package com.github.darksoulq.visage.event;
 import com.github.darksoulq.visage.block.VirtualBlockTracker;
 import com.github.darksoulq.visage.culling.CullingTracker;
 import com.github.darksoulq.visage.packet.PacketInterceptor;
-import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
+import com.github.darksoulq.visage.util.nms.NMSPackets;
 import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -46,8 +46,10 @@ public class VisageListener implements Listener {
     @EventHandler
     public void onPacketSend(PacketSendEvent event) {
         Object rawPacket = event.getPacket();
-        if (rawPacket instanceof ClientboundLevelChunkWithLightPacket chunkPacket) {
-            VirtualBlockTracker.onChunkSent(event.getPlayer(), chunkPacket.x(), chunkPacket.z(), event.getPlayer().getWorld());
+        if (rawPacket.getClass().getSimpleName().equals("ClientboundLevelChunkWithLightPacket")) {
+            int x = NMSPackets.getChunkX(rawPacket);
+            int z = NMSPackets.getChunkZ(rawPacket);
+            VirtualBlockTracker.onChunkSent(event.getPlayer(), x, z, event.getPlayer().getWorld());
         }
     }
 }
