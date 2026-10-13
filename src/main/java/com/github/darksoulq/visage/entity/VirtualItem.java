@@ -23,6 +23,7 @@ public class VirtualItem extends VirtualEntity<ItemEntity> {
         entity.setPos(location.getX(), location.getY(), location.getZ());
         entity.setYRot(location.getYaw());
         entity.setXRot(location.getPitch());
+        entity.setNeverPickUp();
         return entity;
     }
 
