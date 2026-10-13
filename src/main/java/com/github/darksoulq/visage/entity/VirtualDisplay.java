@@ -2,8 +2,11 @@ package com.github.darksoulq.visage.entity;
 
 import com.github.darksoulq.visage.util.nms.NMSMath;
 import com.mojang.math.Transformation;
+import net.minecraft.core.BlockPos;
 import net.minecraft.util.Brightness;
 import net.minecraft.world.entity.Display;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LightLayer;
 import org.bukkit.Location;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
@@ -111,6 +114,20 @@ public abstract class VirtualDisplay<T extends Display> extends VirtualEntity<T>
         this.blockLight = -1;
         this.skyLight = -1;
         nmsEntity.setBrightnessOverride(null);
+    }
+
+    public void syncLight() {
+
+        BlockPos pos = nmsEntity.blockPosition();
+        Level level = nmsEntity.level();
+
+        int newBlockLight = level.getBrightness(LightLayer.BLOCK, pos);
+        int newSkyLight = level.getBrightness(LightLayer.SKY, pos);
+
+        if (this.blockLight != newBlockLight || this.skyLight != newSkyLight) {
+            setBrightness(newBlockLight, newSkyLight);
+            flush();
+        }
     }
 
     public org.bukkit.util.Transformation getTransformation() {

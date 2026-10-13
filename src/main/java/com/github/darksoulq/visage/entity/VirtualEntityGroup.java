@@ -3,12 +3,16 @@ package com.github.darksoulq.visage.entity;
 import com.github.darksoulq.visage.VisageConfig;
 import com.github.darksoulq.visage.culling.CullingTracker;
 import com.github.darksoulq.visage.packet.PacketIO;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBundlePacket;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.LightLayer;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
+import org.bukkit.craftbukkit.CraftWorld;
 import org.bukkit.entity.Player;
 import org.bukkit.util.BoundingBox;
 import org.joml.Quaternionf;
@@ -136,6 +140,30 @@ public class VirtualEntityGroup implements EntityGroupable {
                 Player p = Bukkit.getPlayer(viewerId);
                 if (p != null) PacketIO.send(p, bundle);
             }
+        }
+    }
+
+    public void syncLight() {
+        if (world == null || children.isEmpty()) return;
+
+        ServerLevel level = ((CraftWorld) world).getHandle();
+        BlockPos pos = BlockPos.containing(coreLocation.getX(), coreLocation.getY(), coreLocation.getZ());
+
+        int newBlockLight = level.getBrightness(LightLayer.BLOCK, pos);
+        int newSkyLight = level.getBrightness(LightLayer.SKY, pos);
+
+        boolean updated = false;
+        for (EntityGroupable child : children) {
+            if (child instanceof VirtualDisplay<?> display) {
+                if (display.getBlockLight() != newBlockLight || display.getSkyLight() != newSkyLight) {
+                    display.setBrightness(newBlockLight, newSkyLight);
+                    updated = true;
+                }
+            }
+        }
+
+        if (updated) {
+            flush();
         }
     }
 

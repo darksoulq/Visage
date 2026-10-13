@@ -25,27 +25,12 @@ public abstract class ModelledBlockEntity extends BlockEntity {
         modelGroup = new VirtualEntityGroup(loc);
         buildModel(modelGroup, loc);
         updateModel();
-        syncLight();
+        modelGroup.syncLight();
     }
 
     protected abstract void buildModel(VirtualEntityGroup group, Location location);
 
     public abstract void updateModel();
-
-    public void syncLight() {
-        if (!syncLight) return;
-        if (modelGroup != null) {
-            Block b = getBlock().getLocation().getBlock();
-            int blockLight = b.getLightFromBlocks();
-            int skyLight = b.getLightFromSky();
-            for (EntityGroupable child : modelGroup.getChildren()) {
-                if (child instanceof VirtualDisplay<?> display) {
-                    display.setBrightness(blockLight, skyLight);
-                    display.flush();
-                }
-            }
-        }
-    }
 
     public void destroyModel() {
         if (modelGroup != null) {
