@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "io.github.darksoulq"
-version = "1.0.11"
+version = "1.0.15"
 
 val targetJavaVersion = 25
 

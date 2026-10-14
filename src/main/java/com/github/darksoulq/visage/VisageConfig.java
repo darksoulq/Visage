@@ -10,4 +10,9 @@ public class VisageConfig {
     public static double OCTREE_MAX_XYZ = 30000000.0;
     public static double OCTREE_MIN_Y = -64.0;
     public static double OCTREE_MAX_Y = 320.0;
+    public static double OCCLUSION_MAX_DISTANCE = 24.0;
+
+    public static double DISTANCE_HYSTERESIS = 3.0;
+    public static double FRUSTUM_HYSTERESIS_BUFFER = 25.0;
+    public static int MAX_SPAWNS_PER_TICK = 45;
 }

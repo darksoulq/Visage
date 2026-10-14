@@ -5,7 +5,6 @@ import org.bukkit.util.BoundingBox;
 import org.bukkit.util.Vector;
 
 import java.util.*;
-import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.function.Function;
 
 public class Octree<N> implements Iterable<N> {
@@ -17,8 +16,8 @@ public class Octree<N> implements Iterable<N> {
     private final Function<N, BoundingBox> entryStrategy;
     private final boolean storeOutOfBoundsEntries;
 
-    private final Set<N> entries = new CopyOnWriteArraySet<>();
-    private final Set<N> outOfBoundsEntries = new CopyOnWriteArraySet<>();
+    private final Set<N> entries = new HashSet<>();
+    private final Set<N> outOfBoundsEntries = new HashSet<>();
     private Octree<N>[] children = null;
 
     public Octree(BoundingBox bounds, int depth, Function<N, BoundingBox> entryStrategy) {
@@ -96,7 +95,7 @@ public class Octree<N> implements Iterable<N> {
         Vector max = bounds.getMax();
         Vector center = min.clone().add(max).multiply(0.5);
 
-        children = new Octree[8];
+        Octree<N>[] newChildren = new Octree[8];
         for (int i = 0; i < 8; i++) {
             int dx = (i >> 2) & 1;
             int dy = (i >> 1) & 1;
@@ -111,19 +110,21 @@ public class Octree<N> implements Iterable<N> {
                 dy == 0 ? center.getY() : max.getY(),
                 dz == 0 ? center.getZ() : max.getZ()
             );
-            children[i] = new Octree<>(maxDepth, maxEntries, BoundingBox.of(childMin, childMax), depth + 1, entryStrategy, storeOutOfBoundsEntries);
+            newChildren[i] = new Octree<>(maxDepth, maxEntries, BoundingBox.of(childMin, childMax), depth + 1, entryStrategy, storeOutOfBoundsEntries);
         }
 
         List<N> toTransfer = new ArrayList<>(entries);
-        entries.clear();
         for (N entry : toTransfer) {
-            for (Octree<N> child : children) {
+            for (Octree<N> child : newChildren) {
                 if (child.bounds.overlaps(entryStrategy.apply(entry))) {
                     child.insert(entry);
                     break;
                 }
             }
         }
+
+        this.children = newChildren;
+        entries.removeAll(toTransfer);
     }
 
     public List<N> query(BoundingBox range) {
@@ -150,38 +151,6 @@ public class Octree<N> implements Iterable<N> {
 
     @Override
     public Iterator<N> iterator() {
-        return new OctreeIterator<>(this);
-    }
-
-    private static class OctreeIterator<N> implements Iterator<N> {
-        private final List<Octree<N>> stack = new ArrayList<>();
-        private Iterator<N> currentEntries = null;
-
-        public OctreeIterator(Octree<N> root) {
-            stack.add(root);
-        }
-
-        @Override
-        public boolean hasNext() {
-            while (true) {
-                if (currentEntries != null && currentEntries.hasNext()) {
-                    return true;
-                }
-                if (stack.isEmpty()) {
-                    return false;
-                }
-                Octree<N> node = stack.removeLast();
-                currentEntries = node.entries.iterator();
-                if (node.children != null) {
-                    Collections.addAll(stack, node.children);
-                }
-            }
-        }
-
-        @Override
-        public N next() {
-            if (!hasNext()) throw new NoSuchElementException();
-            return currentEntries.next();
-        }
+        return Collections.emptyIterator();
     }
 }

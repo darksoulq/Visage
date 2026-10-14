@@ -63,6 +63,7 @@ public abstract class VirtualEntity<T extends Entity> implements EntityGroupable
 
     protected World world;
     protected ClientboundTeleportEntityPacket pendingTeleport = null;
+    protected boolean dead = false;
 
     public VirtualEntity(Location location) {
         this.location = location.clone();
@@ -153,6 +154,11 @@ public abstract class VirtualEntity<T extends Entity> implements EntityGroupable
             this.location.setPitch(newLocation.getPitch());
             this.location.setWorld(newLocation.getWorld());
 
+            double xRad = this.boundingBox.getWidthX() / 2.0;
+            double yRad = this.boundingBox.getHeight() / 2.0;
+            double zRad = this.boundingBox.getWidthZ() / 2.0;
+            this.boundingBox = BoundingBox.of(this.location, xRad, yRad, zRad);
+
             this.recalculateBounds();
 
             this.nmsEntity.setPos(newLocation.getX(), newLocation.getY(), newLocation.getZ());
@@ -218,6 +224,10 @@ public abstract class VirtualEntity<T extends Entity> implements EntityGroupable
 
     public Set<UUID> getViewers() {
         return Collections.unmodifiableSet(viewers);
+    }
+
+    public boolean isDead() {
+        return this.dead;
     }
 
     @Override
@@ -333,6 +343,8 @@ public abstract class VirtualEntity<T extends Entity> implements EntityGroupable
 
     @Override
     public void destroyAll() {
+        this.dead = true;
+
         CullingTracker.unregister(this.uniqueId);
         ENTITY_REGISTRY.remove(this.nmsEntity.getId());
         if (viewers.isEmpty()) return;
